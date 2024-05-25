@@ -7,6 +7,8 @@ use App\Models\Wallet;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Transaction;
 
 class WalletController extends Controller
 {
@@ -17,8 +19,14 @@ class WalletController extends Controller
 
     public function index()
     {
-        $wallet = Wallet::where('user_id', auth()->id())->first();
-        return view('wallet.index', compact('wallet'));
+        $user = Auth::user();
+        $wallet = Wallet::where('user_id', $user->id)->first();
+        $transactions = Transaction::where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
+
+        return view('wallet.index', [
+            'balance' => $wallet ? $wallet->balance : 0,
+            'transactions' => $transactions
+        ]);
     }
 
     public function addFunds(Request $request)
@@ -81,11 +89,21 @@ class WalletController extends Controller
         try {
             Log::info('Completing payment for user: ' . $userId);
 
+            // Update wallet balance
             $wallet = Wallet::firstOrCreate(['user_id' => $userId]);
             $wallet->balance += $amount;
             $wallet->save();
 
             Log::info('Wallet balance updated successfully for user: ' . $userId . ' New Balance: ' . $wallet->balance);
+
+            // Record transaction
+            Transaction::create([
+                'user_id' => $userId,
+                'description' => 'Added funds to wallet',
+                'amount' => $amount,
+            ]);
+
+            Log::info('Transaction recorded successfully for user: ' . $userId . ' Amount: ' . $amount);
 
             return response()->json(['success' => true, 'message' => 'Funds added successfully']);
         } catch (\Exception $e) {

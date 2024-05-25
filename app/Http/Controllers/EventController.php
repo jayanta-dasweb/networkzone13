@@ -3,11 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Event;
 use App\Models\Wallet;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Models\Transaction;
+use Illuminate\Support\Facades\Auth;
 
 class EventController extends Controller
 {
@@ -18,113 +17,137 @@ class EventController extends Controller
 
     public function index()
     {
-        return view('events.index');
+        $user = Auth::user();
+        $events = Event::where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
+        $wallet = Wallet::where('user_id', $user->id)->first();
+
+        return view('events.index', [
+            'events' => $events,
+            'balance' => $wallet ? $wallet->balance : 0
+        ]);
     }
 
     public function create()
     {
-        return view('events.create');
+        $user = Auth::user();
+        $wallet = Wallet::where('user_id', $user->id)->first();
+
+        return view('events.create', [
+            'balance' => $wallet ? $wallet->balance : 0
+        ]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'event_date' => 'required|date',
-            'event_time' => 'required|date_format:H:i',
-            'venue' => 'required|string|max:255',
-            'number_of_seats' => 'required|integer',
-            'ticket_price' => 'required|numeric'
+            'name' => 'required|string|max:255',
+            'date' => 'required|date'
         ]);
 
-        $wallet = Auth::user()->wallet;
+        $user = Auth::user();
+        $wallet = Wallet::where('user_id', $user->id)->first();
 
         if ($wallet->balance < 5) {
-            return back()->withErrors(['error' => 'Insufficient balance in wallet']);
+            return back()->withErrors(['error' => 'Insufficient wallet balance.']);
         }
 
-        DB::beginTransaction();
-        try {
-            $event = Event::create([
-                'user_id' => Auth::id(),
-                'title' => $request->title,
-                'description' => $request->description,
-                'event_date' => $request->event_date,
-                'event_time' => $request->event_time,
-                'venue' => $request->venue,
-                'number_of_seats' => $request->number_of_seats,
-                'ticket_price' => $request->ticket_price
-            ]);
+        $event = Event::create([
+            'user_id' => $user->id,
+            'name' => $request->name,
+            'date' => $request->date
+        ]);
 
-            $wallet->balance -= 5;
-            $wallet->save();
+        // Deduct 5 USD from wallet and add transaction
+        $wallet->balance -= 5;
+        $wallet->save();
 
-            DB::commit();
+        Transaction::create([
+            'user_id' => $user->id,
+            'description' => 'Event created: ' . $event->name,
+            'amount' => -5
+        ]);
 
-            return redirect()->route('events.index')->with('success', 'Event created successfully');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error creating event: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Error creating event']);
-        }
+        return redirect()->route('events.index')->with('success', 'Event created successfully.');
     }
 
     public function edit(Event $event)
     {
-        return view('events.edit', compact('event'));
+        $this->authorize('update', $event);
+        $user = Auth::user();
+        $wallet = Wallet::where('user_id', $user->id)->first();
+
+        return view('events.edit', [
+            'event' => $event,
+            'balance' => $wallet ? $wallet->balance : 0
+        ]);
     }
 
     public function update(Request $request, Event $event)
     {
+        $this->authorize('update', $event);
+
         $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'event_date' => 'required|date',
-            'event_time' => 'required|date_format:H:i',
-            'venue' => 'required|string|max:255',
-            'number_of_seats' => 'required|integer',
-            'ticket_price' => 'required|numeric'
+            'name' => 'required|string|max:255',
+            'date' => 'required|date'
         ]);
 
-        $event->update($request->all());
+        $event->update([
+            'name' => $request->name,
+            'date' => $request->date
+        ]);
 
-        return redirect()->route('events.index')->with('success', 'Event updated successfully');
+        return redirect()->route('events.index')->with('success', 'Event updated successfully.');
     }
 
     public function destroy(Event $event)
     {
+        $this->authorize('delete', $event);
+
+        $user = Auth::user();
+        $wallet = Wallet::where('user_id', $user->id)->first();
+
         $event->delete();
 
-        return redirect()->route('events.index')->with('success', 'Event deleted successfully');
+        // Add 5 USD to wallet and add transaction
+        $wallet->balance += 5;
+        $wallet->save();
+
+        Transaction::create([
+            'user_id' => $user->id,
+            'description' => 'Event deleted: ' . $event->name,
+            'amount' => 5
+        ]);
+
+        return redirect()->route('events.index')->with('success', 'Event deleted successfully.');
     }
 
-    public function getEvents(Request $request)
+    public function destroyMultiple(Request $request)
     {
-        $columns = ['title', 'description', 'event_date', 'event_time', 'venue', 'number_of_seats', 'ticket_price'];
-        $length = $request->input('length');
-        $column = $request->input('column'); //Index
-        $dir = $request->input('dir') === 'desc' ? 'desc' : 'asc'; //Direction
-        $searchValue = $request->input('search');
+        $request->validate([
+            'event_ids' => 'required|array'
+        ]);
 
-        $query = Event::where('user_id', Auth::id())->orderBy($columns[$column], $dir);
+        $user = Auth::user();
+        $wallet = Wallet::where('user_id', $user->id)->first();
 
-        if ($searchValue) {
-            $query->where(function($query) use ($searchValue) {
-                $query->where('title', 'like', '%' . $searchValue . '%')
-                    ->orWhere('description', 'like', '%' . $searchValue . '%')
-                    ->orWhere('venue', 'like', '%' . $searchValue . '%');
-            });
+        $events = Event::whereIn('id', $request->event_ids)->where('user_id', $user->id)->get();
+        $deletedCount = 0;
+
+        foreach ($events as $event) {
+            $event->delete();
+            $deletedCount++;
+
+            Transaction::create([
+                'user_id' => $user->id,
+                'description' => 'Event deleted: ' . $event->name,
+                'amount' => 5
+            ]);
         }
 
-        $events = $query->paginate($length);
+        // Add 5 USD for each deleted event to wallet and add transaction
+        $wallet->balance += 5 * $deletedCount;
+        $wallet->save();
 
-        return response()->json([
-            'data' => $events->items(),
-            'draw' => $request->input('draw'),
-            'recordsTotal' => $events->total(),
-            'recordsFiltered' => $events->total(),
-        ]);
+        return redirect()->route('events.index')->with('success', 'Selected events deleted successfully.');
     }
 }
-

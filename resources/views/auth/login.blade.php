@@ -76,7 +76,7 @@
                 url: '{{ route('login.captcha.regenerate') }}',
                 method: 'GET',
                 success: function(response) {
-                    console.log("Captcha regenerated:", response.captcha);
+                    console.log("Captcha regenerated:", response);
                     $('#captcha-label').text(response.captcha);
                     $('#captcha').val('');
                 },

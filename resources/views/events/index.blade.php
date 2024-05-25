@@ -8,23 +8,35 @@
                 <div class="card-header">{{ __('Events') }}</div>
 
                 <div class="card-body">
-                    <a href="{{ route('events.create') }}" class="btn btn-primary mb-3">Create Event</a>
-                    <table id="events-table" class="table table-bordered">
+                    <h4><strong>Wallet Balance: $<span id="wallet-balance">{{ $balance }}</span></strong></h4>
+                    <table id="events-table" class="display">
                         <thead>
                             <tr>
-                                <th>Title</th>
-                                <th>Description</th>
-                                <th>Event Date</th>
-                                <th>Event Time</th>
-                                <th>Venue</th>
-                                <th>No. of Seats</th>
-                                <th>Ticket Price</th>
+                                <th><input type="checkbox" id="select-all"></th>
+                                <th>Date</th>
+                                <th>Name</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
+                            @foreach ($events as $event)
+                            <tr>
+                                <td><input type="checkbox" class="event-checkbox" data-id="{{ $event->id }}"></td>
+                                <td>{{ $event->date }}</td>
+                                <td>{{ $event->name }}</td>
+                                <td>
+                                    <a href="{{ route('events.edit', $event) }}" class="btn btn-warning btn-sm">Edit</a>
+                                    <form action="{{ route('events.destroy', $event) }}" method="POST" style="display:inline;">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            @endforeach
                         </tbody>
                     </table>
+                    <button id="delete-selected" class="btn btn-danger btn-sm">Delete Selected</button>
                 </div>
             </div>
         </div>
@@ -33,24 +45,39 @@
 @endsection
 
 @section('scripts')
-<script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
 <script>
     $(document).ready(function() {
-        $('#events-table').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: '{{ route('events.data') }}',
-            columns: [
-                { data: 'title', name: 'title' },
-                { data: 'description', name: 'description' },
-                { data: 'event_date', name: 'event_date' },
-                { data: 'event_time', name: 'event_time' },
-                { data: 'venue', name: 'venue' },
-                { data: 'number_of_seats', name: 'number_of_seats' },
-                { data: 'ticket_price', name: 'ticket_price' },
-                { data: 'actions', name: 'actions', orderable: false, searchable: false }
-            ]
+        var table = $('#events-table').DataTable();
+
+        // Handle select all checkbox
+        $('#select-all').on('click', function() {
+            var rows = table.rows({ 'search': 'applied' }).nodes();
+            $('input[type="checkbox"]', rows).prop('checked', this.checked);
+        });
+
+        // Handle delete selected button
+        $('#delete-selected').on('click', function() {
+            var eventIds = [];
+            $('.event-checkbox:checked').each(function() {
+                eventIds.push($(this).data('id'));
+            });
+
+            if (eventIds.length > 0) {
+                $.ajax({
+                    url: '{{ route("events.destroyMultiple") }}',
+                    method: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        event_ids: eventIds
+                    },
+                    success: function(response) {
+                        window.location.reload();
+                    }
+                });
+            }
         });
     });
 </script>

@@ -23,11 +23,13 @@
                                 <div id="card-errors" role="alert"></div>
                             </div>
                             <button type="submit" class="btn btn-primary mt-3">Add Funds</button>
+                            @if($wallet->balance >= 5)
+                                <a href="{{ route('events.create') }}" class="btn btn-success ml-3 mt-3">Create Event</a>
+                                <a href="{{ route('wallet.index') }}" class="btn btn-dark ml-3 mt-3 ">History</a>
+                            @endif
                         </form>
 
-                        @if ($wallet->balance >= 5)
-                            <a href="{{ route('events.create') }}" class="btn btn-success mt-3">Create Event</a>
-                        @else
+                        @if ($wallet->balance < 5)
                             <p class="mt-3 text-danger">You need at least $5 in your wallet to create an event.</p>
                         @endif
                     @else
