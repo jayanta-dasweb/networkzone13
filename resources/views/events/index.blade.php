@@ -5,7 +5,10 @@
     <div class="row justify-content-center">
         <div class="col-md-12">
             <div class="card">
-                <div class="card-header">{{ __('Events') }}</div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>{{ __('Events') }}</span>
+                    <a href="{{ route('events.create') }}" class="btn btn-primary btn-sm">Create Event</a>
+                </div>
 
                 <div class="card-body">
                     <h4><strong>Wallet Balance: $<span id="wallet-balance">{{ $balance }}</span></strong></h4>
@@ -29,18 +32,14 @@
                                 <td><input type="checkbox" class="event-checkbox" data-id="{{ $event->id }}"></td>
                                 <td>{{ $event->title }}</td>
                                 <td>{{ $event->description }}</td>
-                                <td>{{ $event->event_date }}</td>
-                                <td>{{ $event->event_time }}</td>
+                                <td>{{ $event->formatted_event_date }}</td>
+                                <td>{{ $event->formatted_event_time }}</td>
                                 <td>{{ $event->venue }}</td>
                                 <td>{{ $event->number_of_seats }}</td>
-                                <td>${{ $event->ticket_price }}</td>
+                                <td>{{ $event->ticket_price }}</td>
                                 <td>
                                     <a href="{{ route('events.edit', $event) }}" class="btn btn-warning btn-sm">Edit</a>
-                                    <form action="{{ route('events.destroy', $event) }}" method="POST" style="display:inline;">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                                    </form>
+                                    <button class="btn btn-danger btn-sm delete-event" data-id="{{ $event->id }}">Delete</button>
                                 </td>
                             </tr>
                             @endforeach
@@ -58,6 +57,7 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" />
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     $(document).ready(function() {
         var table = $('#events-table').DataTable();
@@ -76,18 +76,79 @@
             });
 
             if (eventIds.length > 0) {
-                $.ajax({
-                    url: '{{ route("events.destroyMultiple") }}',
-                    method: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        event_ids: eventIds
-                    },
-                    success: function(response) {
-                        window.location.reload();
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: "You won't be able to revert this!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Yes, delete it!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: '{{ route("events.destroyMultiple") }}',
+                            method: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                event_ids: eventIds
+                            },
+                            success: function(response) {
+                                Swal.fire(
+                                    'Deleted!',
+                                    'Your events have been deleted.',
+                                    'success'
+                                ).then(() => {
+                                    if (response.redirect) {
+                                        window.location.href = response.redirect;
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                });
+                            }
+                        });
                     }
                 });
             }
+        });
+
+        // Handle individual delete button
+        $('.delete-event').on('click', function() {
+            var eventId = $(this).data('id');
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '{{ url("events") }}/' + eventId,
+                        method: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            _method: 'DELETE'
+                        },
+                        success: function(response) {
+                            Swal.fire(
+                                'Deleted!',
+                                'Your event has been deleted.',
+                                'success'
+                            ).then(() => {
+                                if (response.redirect) {
+                                    window.location.href = response.redirect;
+                                } else {
+                                    window.location.reload();
+                                }
+                            });
+                        }
+                    });
+                }
+            });
         });
     });
 </script>

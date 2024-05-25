@@ -31,54 +31,46 @@ class EventController extends Controller
     {
         $user = Auth::user();
         $wallet = Wallet::where('user_id', $user->id)->first();
+        $hasEvents = Event::where('user_id', $user->id)->exists();
 
         return view('events.create', [
-            'balance' => $wallet ? $wallet->balance : 0
+            'balance' => $wallet ? $wallet->balance : 0,
+            'hasEvents' => $hasEvents
         ]);
     }
 
-    public function store(Request $request)
+
+   public function store(Request $request)
     {
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'event_date' => 'required|date',
-            'event_time' => 'required|date_format:H:i',
+            'event_time' => 'required|string',
             'venue' => 'required|string|max:255',
             'number_of_seats' => 'required|integer|min:1',
             'ticket_price' => 'required|numeric|min:0'
         ]);
 
-        $user = Auth::user();
-        $wallet = Wallet::where('user_id', $user->id)->first();
+        // Convert time format
+        $eventTime = \DateTime::createFromFormat('h:i A', $request->event_time)->format('H:i');
 
-        if ($wallet->balance < 5) {
-            return back()->withErrors(['error' => 'Insufficient wallet balance.']);
-        }
-
-        $event = Event::create([
-            'user_id' => $user->id,
+        Event::create([
+            'user_id' => auth()->id(),
             'title' => $request->title,
             'description' => $request->description,
             'event_date' => $request->event_date,
-            'event_time' => $request->event_time,
+            'event_time' => $eventTime,
             'venue' => $request->venue,
             'number_of_seats' => $request->number_of_seats,
             'ticket_price' => $request->ticket_price
         ]);
 
-        // Deduct 5 USD from wallet and add transaction
-        $wallet->balance -= 5;
-        $wallet->save();
-
-        Transaction::create([
-            'user_id' => $user->id,
-            'description' => 'Event created: ' . $event->title,
-            'amount' => -5
-        ]);
-
-        return redirect()->route('events.index')->with('success', 'Event created successfully.');
+        return response()->json(['success' => true, 'message' => 'Event created successfully.']);
     }
+
+
+
 
     public function edit(Event $event)
     {
@@ -92,7 +84,7 @@ class EventController extends Controller
         ]);
     }
 
-    public function update(Request $request, Event $event)
+   public function update(Request $request, Event $event)
     {
         $this->authorize('update', $event);
 
@@ -100,24 +92,28 @@ class EventController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'event_date' => 'required|date',
-            'event_time' => 'required|date_format:H:i',
+            'event_time' => 'required|string',
             'venue' => 'required|string|max:255',
             'number_of_seats' => 'required|integer|min:1',
             'ticket_price' => 'required|numeric|min:0'
         ]);
 
+        // Convert time format
+        $eventTime = \DateTime::createFromFormat('h:i A', $request->event_time)->format('H:i');
+
         $event->update([
             'title' => $request->title,
             'description' => $request->description,
             'event_date' => $request->event_date,
-            'event_time' => $request->event_time,
+            'event_time' => $eventTime,
             'venue' => $request->venue,
             'number_of_seats' => $request->number_of_seats,
             'ticket_price' => $request->ticket_price
         ]);
 
-        return redirect()->route('events.index')->with('success', 'Event updated successfully.');
+        return response()->json(['success' => true, 'message' => 'Event updated successfully.']);
     }
+
 
     public function destroy(Event $event)
     {
@@ -138,7 +134,12 @@ class EventController extends Controller
             'amount' => 5
         ]);
 
-        return redirect()->route('events.index')->with('success', 'Event deleted successfully.');
+        $remainingEvents = Event::where('user_id', $user->id)->count();
+        if ($remainingEvents === 0) {
+            return response()->json(['redirect' => route('events.create')]);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function destroyMultiple(Request $request)
@@ -169,6 +170,11 @@ class EventController extends Controller
         $wallet->balance += 5 * $deletedCount;
         $wallet->save();
 
-        return redirect()->route('events.index')->with('success', 'Selected events deleted successfully.');
+        $remainingEvents = Event::where('user_id', $user->id)->count();
+        if ($remainingEvents === 0) {
+            return response()->json(['redirect' => route('events.create')]);
+        }
+
+        return response()->json(['success' => true]);
     }
 }

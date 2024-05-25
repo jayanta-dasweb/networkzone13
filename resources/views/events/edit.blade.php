@@ -19,7 +19,7 @@
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('events.update', $event) }}">
+                    <form id="event-form" method="POST" action="{{ route('events.update', $event) }}">
                         @csrf
                         @method('PUT')
 
@@ -40,14 +40,14 @@
                         <div class="row mb-3">
                             <label for="event_date" class="col-md-4 col-form-label text-md-end">{{ __('Event Date') }}</label>
                             <div class="col-md-6">
-                                <input id="event_date" type="date" class="form-control" name="event_date" value="{{ old('event_date', $event->event_date) }}" required>
+                                <input id="event_date" type="text" class="form-control datepicker" name="event_date" value="{{ old('event_date', $event->event_date) }}" required>
                             </div>
                         </div>
 
                         <div class="row mb-3">
                             <label for="event_time" class="col-md-4 col-form-label text-md-end">{{ __('Event Time') }}</label>
                             <div class="col-md-6">
-                                <input id="event_time" type="time" class="form-control" name="event_time" value="{{ old('event_time', $event->event_time->format('H:i')) }}" required>
+                                <input id="event_time" type="text" class="form-control timepicker" name="event_time" value="{{ old('event_time', $event->event_time) }}" required>
                             </div>
                         </div>
 
@@ -85,4 +85,57 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    $(function() {
+        $('.datepicker').datepicker({
+            dateFormat: 'yy-mm-dd'
+        });
+        $('.timepicker').flatpickr({
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "h:i K",
+            time_24hr: false
+        });
+
+        $('#event-form').on('submit', function(event) {
+            event.preventDefault();
+            let form = $(this);
+            $.ajax({
+                url: form.attr('action'),
+                method: form.attr('method'),
+                data: form.serialize(),
+                success: function(response) {
+                    Swal.fire(
+                        'Success',
+                        'Event updated successfully.',
+                        'success'
+                    ).then(() => {
+                        window.location.href = '{{ route("events.index") }}';
+                    });
+                },
+                error: function(xhr) {
+                    let errors = xhr.responseJSON.errors;
+                    let errorMessages = '';
+                    for (let error in errors) {
+                        errorMessages += errors[error].join('<br>') + '<br>';
+                    }
+                    Swal.fire(
+                        'Error',
+                        errorMessages,
+                        'error'
+                    );
+                }
+            });
+        });
+    });
+</script>
 @endsection

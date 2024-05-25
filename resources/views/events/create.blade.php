@@ -5,9 +5,19 @@
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
-                <div class="card-header">{{ __('Create Event') }}</div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>{{ __('Create Event') }}</span>
+                    @if ($hasEvents)
+                        <a href="{{ route('events.index') }}" class="btn btn-primary btn-sm">View Events</a>
+                    @endif
+                </div>
 
                 <div class="card-body">
+                    @if (session('error'))
+                        <div class="alert alert-danger">
+                            {{ session('error') }}
+                        </div>
+                    @endif
                     <h4><strong>Wallet Balance: $<span id="wallet-balance">{{ $balance }}</span></strong></h4>
                     @if ($errors->any())
                         <div class="alert alert-danger">
@@ -19,7 +29,7 @@
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('events.store') }}">
+                    <form id="event-form" method="POST" action="{{ route('events.store') }}">
                         @csrf
 
                         <div class="row mb-3">
@@ -39,14 +49,14 @@
                         <div class="row mb-3">
                             <label for="event_date" class="col-md-4 col-form-label text-md-end">{{ __('Event Date') }}</label>
                             <div class="col-md-6">
-                                <input id="event_date" type="date" class="form-control" name="event_date" value="{{ old('event_date') }}" required>
+                                <input id="event_date" type="text" class="form-control datepicker" name="event_date" value="{{ old('event_date') }}" required>
                             </div>
                         </div>
 
                         <div class="row mb-3">
                             <label for="event_time" class="col-md-4 col-form-label text-md-end">{{ __('Event Time') }}</label>
                             <div class="col-md-6">
-                                <input id="event_time" type="time" class="form-control" name="event_time" value="{{ old('event_time') }}" required>
+                                <input id="event_time" type="text" class="form-control timepicker" name="event_time" value="{{ old('event_time') }}" required>
                             </div>
                         </div>
 
@@ -84,4 +94,57 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    $(function() {
+        $('.datepicker').datepicker({
+            dateFormat: 'yy-mm-dd'
+        });
+        $('.timepicker').flatpickr({
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "h:i K",
+            time_24hr: false
+        });
+
+        $('#event-form').on('submit', function(event) {
+            event.preventDefault();
+            let form = $(this);
+            $.ajax({
+                url: form.attr('action'),
+                method: form.attr('method'),
+                data: form.serialize(),
+                success: function(response) {
+                    Swal.fire(
+                        'Success',
+                        'Event created successfully.',
+                        'success'
+                    ).then(() => {
+                        window.location.href = '{{ route("events.index") }}';
+                    });
+                },
+                error: function(xhr) {
+                    let errors = xhr.responseJSON.errors;
+                    let errorMessages = '';
+                    for (let error in errors) {
+                        errorMessages += errors[error].join('<br>') + '<br>';
+                    }
+                    Swal.fire(
+                        'Error',
+                        errorMessages,
+                        'error'
+                    );
+                }
+            });
+        });
+    });
+</script>
 @endsection
