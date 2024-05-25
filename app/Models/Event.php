@@ -10,13 +10,13 @@ class Event extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'title',
-        'description',
-        'event_date',
-        'event_time',
-        'venue',
-        'number_of_seats',
+        'user_id', 
+        'title', 
+        'description', 
+        'event_date', 
+        'event_time', 
+        'venue', 
+        'number_of_seats', 
         'ticket_price'
     ];
 
@@ -25,4 +25,3 @@ class Event extends Model
         return $this->belongsTo(User::class);
     }
 }
-

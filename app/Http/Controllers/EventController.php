@@ -40,8 +40,13 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'date' => 'required|date'
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'event_date' => 'required|date',
+            'event_time' => 'required|date_format:H:i',
+            'venue' => 'required|string|max:255',
+            'number_of_seats' => 'required|integer|min:1',
+            'ticket_price' => 'required|numeric|min:0'
         ]);
 
         $user = Auth::user();
@@ -53,8 +58,13 @@ class EventController extends Controller
 
         $event = Event::create([
             'user_id' => $user->id,
-            'name' => $request->name,
-            'date' => $request->date
+            'title' => $request->title,
+            'description' => $request->description,
+            'event_date' => $request->event_date,
+            'event_time' => $request->event_time,
+            'venue' => $request->venue,
+            'number_of_seats' => $request->number_of_seats,
+            'ticket_price' => $request->ticket_price
         ]);
 
         // Deduct 5 USD from wallet and add transaction
@@ -63,7 +73,7 @@ class EventController extends Controller
 
         Transaction::create([
             'user_id' => $user->id,
-            'description' => 'Event created: ' . $event->name,
+            'description' => 'Event created: ' . $event->title,
             'amount' => -5
         ]);
 
@@ -87,13 +97,23 @@ class EventController extends Controller
         $this->authorize('update', $event);
 
         $request->validate([
-            'name' => 'required|string|max:255',
-            'date' => 'required|date'
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'event_date' => 'required|date',
+            'event_time' => 'required|date_format:H:i',
+            'venue' => 'required|string|max:255',
+            'number_of_seats' => 'required|integer|min:1',
+            'ticket_price' => 'required|numeric|min:0'
         ]);
 
         $event->update([
-            'name' => $request->name,
-            'date' => $request->date
+            'title' => $request->title,
+            'description' => $request->description,
+            'event_date' => $request->event_date,
+            'event_time' => $request->event_time,
+            'venue' => $request->venue,
+            'number_of_seats' => $request->number_of_seats,
+            'ticket_price' => $request->ticket_price
         ]);
 
         return redirect()->route('events.index')->with('success', 'Event updated successfully.');
@@ -114,7 +134,7 @@ class EventController extends Controller
 
         Transaction::create([
             'user_id' => $user->id,
-            'description' => 'Event deleted: ' . $event->name,
+            'description' => 'Event deleted: ' . $event->title,
             'amount' => 5
         ]);
 
@@ -134,12 +154,13 @@ class EventController extends Controller
         $deletedCount = 0;
 
         foreach ($events as $event) {
+            $this->authorize('delete', $event);
             $event->delete();
             $deletedCount++;
 
             Transaction::create([
                 'user_id' => $user->id,
-                'description' => 'Event deleted: ' . $event->name,
+                'description' => 'Event deleted: ' . $event->title,
                 'amount' => 5
             ]);
         }

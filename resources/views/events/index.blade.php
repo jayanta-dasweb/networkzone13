@@ -13,8 +13,13 @@
                         <thead>
                             <tr>
                                 <th><input type="checkbox" id="select-all"></th>
+                                <th>Title</th>
+                                <th>Description</th>
                                 <th>Date</th>
-                                <th>Name</th>
+                                <th>Time</th>
+                                <th>Venue</th>
+                                <th>Seats</th>
+                                <th>Price</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -22,8 +27,13 @@
                             @foreach ($events as $event)
                             <tr>
                                 <td><input type="checkbox" class="event-checkbox" data-id="{{ $event->id }}"></td>
-                                <td>{{ $event->date }}</td>
-                                <td>{{ $event->name }}</td>
+                                <td>{{ $event->title }}</td>
+                                <td>{{ $event->description }}</td>
+                                <td>{{ $event->event_date }}</td>
+                                <td>{{ $event->event_time }}</td>
+                                <td>{{ $event->venue }}</td>
+                                <td>{{ $event->number_of_seats }}</td>
+                                <td>${{ $event->ticket_price }}</td>
                                 <td>
                                     <a href="{{ route('events.edit', $event) }}" class="btn btn-warning btn-sm">Edit</a>
                                     <form action="{{ route('events.destroy', $event) }}" method="POST" style="display:inline;">
