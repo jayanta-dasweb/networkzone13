@@ -40,34 +40,55 @@ class EventController extends Controller
     }
 
 
-   public function store(Request $request)
-    {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'event_date' => 'required|date',
-            'event_time' => 'required|string',
-            'venue' => 'required|string|max:255',
-            'number_of_seats' => 'required|integer|min:1',
-            'ticket_price' => 'required|numeric|min:0'
-        ]);
+  public function store(Request $request)
+{
+    $request->validate([
+        'title' => 'required|string|max:255',
+        'description' => 'required|string',
+        'event_date' => 'required|date',
+        'event_time' => 'required|string',
+        'venue' => 'required|string|max:255',
+        'number_of_seats' => 'required|integer|min:1',
+        'ticket_price' => 'required|numeric|min:0'
+    ]);
 
-        // Convert time format
-        $eventTime = \DateTime::createFromFormat('h:i A', $request->event_time)->format('H:i');
+    // Convert time format
+    $eventTime = \DateTime::createFromFormat('h:i A', $request->event_time)->format('H:i');
 
-        Event::create([
-            'user_id' => auth()->id(),
-            'title' => $request->title,
-            'description' => $request->description,
-            'event_date' => $request->event_date,
-            'event_time' => $eventTime,
-            'venue' => $request->venue,
-            'number_of_seats' => $request->number_of_seats,
-            'ticket_price' => $request->ticket_price
-        ]);
+    $user = auth()->user();
+    $wallet = $user->wallet;
 
-        return response()->json(['success' => true, 'message' => 'Event created successfully.']);
+    // Check if the wallet balance is sufficient
+    if ($wallet->balance < 5) {
+        return response()->json(['success' => false, 'message' => 'Insufficient wallet balance.'], 400);
     }
+
+    // Deduct 5 USD from wallet
+    $wallet->balance -= 5;
+    $wallet->save();
+
+    // Record the transaction
+    \App\Models\Transaction::create([
+        'user_id' => $user->id,
+        'amount' => -5,
+        'description' => 'Deduction for creating event: ' . $request->title
+    ]);
+
+    // Create the event
+    \App\Models\Event::create([
+        'user_id' => $user->id,
+        'title' => $request->title,
+        'description' => $request->description,
+        'event_date' => $request->event_date,
+        'event_time' => $eventTime,
+        'venue' => $request->venue,
+        'number_of_seats' => $request->number_of_seats,
+        'ticket_price' => $request->ticket_price
+    ]);
+
+    return response()->json(['success' => true, 'message' => 'Event created successfully.']);
+}
+
 
 
 
